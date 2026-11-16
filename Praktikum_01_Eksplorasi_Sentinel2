@@ -1,0 +1,161 @@
+// =====================================
+// 1. MENENTUKAN AREA OF INTEREST (AOI)
+// =====================================
+
+var aoi = ee.Geometry.Rectangle([
+  106.50, -6.80,
+  107.20, -6.30
+]);
+
+Map.centerObject(aoi, 10);
+Map.addLayer(aoi, {color: 'red'}, 'AOI Latihan');
+
+// =====================================
+// 2. MENGAMBIL DATA SENTINEL-2
+// =====================================
+
+var sentinel2 = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED');
+
+var filtered = sentinel2
+  .filterBounds(aoi)
+  .filterDate('2025-01-01', '2026-01-01')
+  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 60));
+
+print('Jumlah citra Sentinel-2:', filtered.size());
+
+// =====================================
+// 3. MEMBUAT CITRA KOMPOSIT
+// =====================================
+
+var composite = filtered.median().clip(aoi);
+print('Citra komposit:', composite);
+
+// =====================================
+// 4. VISUALISASI TRUE COLOR
+// =====================================
+
+var trueColor = {
+  bands: ['B4', 'B3', 'B2'],
+  min: 0,
+  max: 3000,
+  gamma: 1.2
+};
+
+Map.addLayer(composite, trueColor, 'Sentinel-2 True Color');
+
+// =====================================
+// 5. MENGHITUNG NDVI
+// =====================================
+
+var ndvi = composite.normalizedDifference(['B8', 'B4']).rename('NDVI');
+
+Map.addLayer(ndvi, {
+  min: -1, max: 1,
+  palette: ['blue', 'white', 'green']
+}, 'NDVI');
+
+// =====================================
+// 6. CLOUD MASKING
+// =====================================
+
+function maskClouds(image) {
+  var scl = image.select('SCL');
+  var mask = scl.neq(3).and(scl.neq(8)).and(scl.neq(9)).and(scl.neq(10));
+  return image.updateMask(mask);
+}
+
+var filtered_masked = filtered.map(maskClouds);
+var composite_clean = filtered_masked.median().clip(aoi);
+
+Map.addLayer(composite_clean, {
+  bands: ['B4', 'B3', 'B2'],
+  min: 0, max: 3000
+}, 'True Color - Clean');
+
+var ndvi_clean = composite_clean
+  .normalizedDifference(['B8', 'B4'])
+  .rename('NDVI_clean');
+
+Map.addLayer(ndvi_clean, {
+  min: -1, max: 1,
+  palette: ['blue', 'white', 'green']
+}, 'NDVI - Clean');
+
+print('Komposit bersih:', composite_clean);
+
+// =====================================
+// 7. TRAINING SAMPLES
+// =====================================
+
+// Kelas: 0=Hutan, 1=Pertanian, 2=Permukiman, 3=Air
+
+var hutan = ee.FeatureCollection([
+  ee.Feature(ee.Geometry.Point([106.72, -6.78]), {kelas: 0}), // diperbaiki
+  ee.Feature(ee.Geometry.Point([106.75, -6.75]), {kelas: 0}),
+  ee.Feature(ee.Geometry.Point([106.70, -6.68]), {kelas: 0}),
+]);
+
+var pertanian = ee.FeatureCollection([
+  ee.Feature(ee.Geometry.Point([106.95, -6.55]), {kelas: 1}),
+  ee.Feature(ee.Geometry.Point([106.98, -6.58]), {kelas: 1}),
+  ee.Feature(ee.Geometry.Point([106.92, -6.52]), {kelas: 1}),
+]);
+
+var permukiman = ee.FeatureCollection([
+  ee.Feature(ee.Geometry.Point([106.80, -6.60]), {kelas: 2}),
+  ee.Feature(ee.Geometry.Point([106.82, -6.62]), {kelas: 2}),
+  ee.Feature(ee.Geometry.Point([106.85, -6.58]), {kelas: 2}),
+]);
+
+var air = ee.FeatureCollection([
+  ee.Feature(ee.Geometry.Point([107.15, -6.42]), {kelas: 3}),
+  ee.Feature(ee.Geometry.Point([107.17, -6.44]), {kelas: 3}),
+]);
+var trainingPoints = hutan
+  .merge(pertanian)
+  .merge(permukiman)
+  .merge(air);
+
+print('Jumlah training points:', trainingPoints.size());
+Map.addLayer(trainingPoints, {color: 'yellow'}, 'Training Points');
+
+// =====================================
+// 8. EKSTRAK NILAI SPEKTRAL
+// =====================================
+
+var bands = ['B2', 'B3', 'B4', 'B8', 'B11', 'B12'];
+
+var training = composite_clean  // pakai composite bersih
+  .select(bands)
+  .sampleRegions({
+    collection: trainingPoints,
+    properties: ['kelas'],
+    scale: 30
+  });
+
+print('Data training:', training);
+
+// =====================================
+// 9. KLASIFIKASI RANDOM FOREST
+// =====================================
+
+var classifier = ee.Classifier.smileRandomForest(50)
+  .train({
+    features: training,
+    classProperty: 'kelas',
+    inputProperties: bands
+  });
+
+var classified = composite_clean  // pakai composite bersih
+  .select(bands)
+  .classify(classifier);
+
+// 0=Hutan (hijau tua), 1=Pertanian (hijau muda), 2=Permukiman (merah), 3=Air (biru)
+var palette = ['1a9641', 'a6d96a', 'd7191c', '2b83ba'];
+
+Map.addLayer(classified, {
+  min: 0, max: 3,
+  palette: palette
+}, 'Klasifikasi LULC');
+
+print('Klasifikasi selesai:', classified);
