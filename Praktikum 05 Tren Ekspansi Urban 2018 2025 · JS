@@ -1,0 +1,235 @@
+// PRAKTIKUM 05 - ANALISIS TREN EKSPANSI URBAN: 2018–2025
+// Wilayah: Surabaya + Sidoarjo + Gresik
+// Klasifikasi: 0=Permukiman, 1=Vegetasi, 2=Air, 3=Tambak, 4=Industri
+// Teknik: Multi-year LULC (4 tahun) | Random Forest 50 trees
+// Sentinel-2 SR Harmonized | SCL Cloud Mask
+
+var aoi = ee.Geometry.Rectangle([112.45, -7.65, 112.95, -7.00]);
+Map.centerObject(aoi, 10);
+
+function maskClouds(image) {
+  var scl = image.select('SCL');
+  var mask = scl.neq(3).and(scl.neq(8)).and(scl.neq(9)).and(scl.neq(10));
+  return image.updateMask(mask);
+}
+
+function buatComposite(tahun) {
+  return ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+    .filterBounds(aoi)
+    .filterDate(tahun + '-01-01', (tahun + 1) + '-01-01')
+    .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 60))
+    .map(maskClouds)
+    .median()
+    .clip(aoi);
+}
+
+var composite2018 = buatComposite(2018);
+var composite2020 = buatComposite(2020);
+var composite2022 = buatComposite(2022);
+var composite2025 = buatComposite(2025);
+
+print('Jumlah citra 2018:', ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+  .filterBounds(aoi).filterDate('2018-01-01','2019-01-01')
+  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE',60)).size());
+print('Jumlah citra 2020:', ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+  .filterBounds(aoi).filterDate('2020-01-01','2021-01-01')
+  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE',60)).size());
+print('Jumlah citra 2022:', ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+  .filterBounds(aoi).filterDate('2022-01-01','2023-01-01')
+  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE',60)).size());
+print('Jumlah citra 2025:', ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+  .filterBounds(aoi).filterDate('2025-01-01','2026-01-01')
+  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE',60)).size());
+
+var permukiman = ee.FeatureCollection([
+  ee.Feature(ee.Geometry.Point([112.75, -7.26]), {kelas: 0}),
+  ee.Feature(ee.Geometry.Point([112.76, -7.27]), {kelas: 0}),
+  ee.Feature(ee.Geometry.Point([112.72, -7.30]), {kelas: 0}),
+  ee.Feature(ee.Geometry.Point([112.78, -7.32]), {kelas: 0}),
+  ee.Feature(ee.Geometry.Point([112.70, -7.23]), {kelas: 0}),
+  ee.Feature(ee.Geometry.Point([112.74, -7.33]), {kelas: 0}),
+  ee.Feature(ee.Geometry.Point([112.77, -7.24]), {kelas: 0}),
+  ee.Feature(ee.Geometry.Point([112.73, -7.22]), {kelas: 0}),
+  ee.Feature(ee.Geometry.Point([112.80, -7.28]), {kelas: 0}),
+  ee.Feature(ee.Geometry.Point([112.68, -7.31]), {kelas: 0}),
+  ee.Feature(ee.Geometry.Point([112.72, -7.45]), {kelas: 0}),
+  ee.Feature(ee.Geometry.Point([112.74, -7.47]), {kelas: 0}),
+  ee.Feature(ee.Geometry.Point([112.70, -7.52]), {kelas: 0}),
+  ee.Feature(ee.Geometry.Point([112.68, -7.21]), {kelas: 0}),
+  ee.Feature(ee.Geometry.Point([112.67, -7.22]), {kelas: 0}),
+]);
+var vegetasi = ee.FeatureCollection([
+  ee.Feature(ee.Geometry.Point([112.76, -7.37]), {kelas: 1}),
+  ee.Feature(ee.Geometry.Point([112.65, -7.27]), {kelas: 1}),
+  ee.Feature(ee.Geometry.Point([112.63, -7.25]), {kelas: 1}),
+  ee.Feature(ee.Geometry.Point([112.64, -7.30]), {kelas: 1}),
+  ee.Feature(ee.Geometry.Point([112.67, -7.35]), {kelas: 1}),
+  ee.Feature(ee.Geometry.Point([112.72, -7.39]), {kelas: 1}),
+  ee.Feature(ee.Geometry.Point([112.58, -7.18]), {kelas: 1}),
+  ee.Feature(ee.Geometry.Point([112.56, -7.20]), {kelas: 1}),
+  ee.Feature(ee.Geometry.Point([112.60, -7.12]), {kelas: 1}),
+  ee.Feature(ee.Geometry.Point([112.55, -7.22]), {kelas: 1}),
+  ee.Feature(ee.Geometry.Point([112.53, -7.17]), {kelas: 1}),
+  ee.Feature(ee.Geometry.Point([112.70, -7.58]), {kelas: 1}),
+  ee.Feature(ee.Geometry.Point([112.68, -7.55]), {kelas: 1}),
+  ee.Feature(ee.Geometry.Point([112.73, -7.57]), {kelas: 1}),
+  ee.Feature(ee.Geometry.Point([112.69, -7.60]), {kelas: 1}),
+]);
+var air = ee.FeatureCollection([
+  ee.Feature(ee.Geometry.Point([112.84, -7.22]), {kelas: 2}),
+  ee.Feature(ee.Geometry.Point([112.84, -7.28]), {kelas: 2}),
+  ee.Feature(ee.Geometry.Point([112.84, -7.33]), {kelas: 2}),
+  ee.Feature(ee.Geometry.Point([112.83, -7.30]), {kelas: 2}),
+  ee.Feature(ee.Geometry.Point([112.83, -7.18]), {kelas: 2}),
+  ee.Feature(ee.Geometry.Point([112.82, -7.20]), {kelas: 2}),
+  ee.Feature(ee.Geometry.Point([112.82, -7.25]), {kelas: 2}),
+  ee.Feature(ee.Geometry.Point([112.84, -7.35]), {kelas: 2}),
+  ee.Feature(ee.Geometry.Point([112.84, -7.17]), {kelas: 2}),
+  ee.Feature(ee.Geometry.Point([112.82, -7.38]), {kelas: 2}),
+  ee.Feature(ee.Geometry.Point([112.65, -7.05]), {kelas: 2}),
+  ee.Feature(ee.Geometry.Point([112.72, -7.03]), {kelas: 2}),
+  ee.Feature(ee.Geometry.Point([112.84, -7.60]), {kelas: 2}),
+  ee.Feature(ee.Geometry.Point([112.86, -7.55]), {kelas: 2}),
+  ee.Feature(ee.Geometry.Point([112.75, -7.62]), {kelas: 2}),
+]);
+var tambak = ee.FeatureCollection([
+  ee.Feature(ee.Geometry.Point([112.81, -7.33]), {kelas: 3}),
+  ee.Feature(ee.Geometry.Point([112.82, -7.35]), {kelas: 3}),
+  ee.Feature(ee.Geometry.Point([112.78, -7.19]), {kelas: 3}),
+  ee.Feature(ee.Geometry.Point([112.80, -7.37]), {kelas: 3}),
+  ee.Feature(ee.Geometry.Point([112.819, -7.342]), {kelas: 3}),
+  ee.Feature(ee.Geometry.Point([112.823, -7.350]), {kelas: 3}),
+  ee.Feature(ee.Geometry.Point([112.815, -7.345]), {kelas: 3}),
+  ee.Feature(ee.Geometry.Point([112.808, -7.355]), {kelas: 3}),
+  ee.Feature(ee.Geometry.Point([112.825, -7.345]), {kelas: 3}),
+  ee.Feature(ee.Geometry.Point([112.817, -7.338]), {kelas: 3}),
+  ee.Feature(ee.Geometry.Point([112.83, -7.47]), {kelas: 3}),
+  ee.Feature(ee.Geometry.Point([112.84, -7.50]), {kelas: 3}),
+  ee.Feature(ee.Geometry.Point([112.83, -7.52]), {kelas: 3}),
+  ee.Feature(ee.Geometry.Point([112.82, -7.55]), {kelas: 3}),
+  ee.Feature(ee.Geometry.Point([112.81, -7.48]), {kelas: 3}),
+]);
+var industri = ee.FeatureCollection([
+  ee.Feature(ee.Geometry.Point([112.6612, -7.1600]), {kelas: 4}),
+  ee.Feature(ee.Geometry.Point([112.6172, -7.1306]), {kelas: 4}),
+  ee.Feature(ee.Geometry.Point([112.6180, -7.1400]), {kelas: 4}),
+  ee.Feature(ee.Geometry.Point([112.6277, -7.1480]), {kelas: 4}),
+  ee.Feature(ee.Geometry.Point([112.6301, -7.1585]), {kelas: 4}),
+  ee.Feature(ee.Geometry.Point([112.6400, -7.1550]), {kelas: 4}),
+  ee.Feature(ee.Geometry.Point([112.6450, -7.1500]), {kelas: 4}),
+  ee.Feature(ee.Geometry.Point([112.6350, -7.1480]), {kelas: 4}),
+  ee.Feature(ee.Geometry.Point([112.6250, -7.1400]), {kelas: 4}),
+  ee.Feature(ee.Geometry.Point([112.6220, -7.1350]), {kelas: 4}),
+]);
+
+var trainingPoints = permukiman.merge(vegetasi).merge(air).merge(tambak).merge(industri);
+print('Total training points:', trainingPoints.size());
+
+var bands = ['B2', 'B3', 'B4', 'B8', 'B11', 'B12'];
+var training = composite2025.select(bands).sampleRegions({
+  collection: trainingPoints,
+  properties: ['kelas'],
+  scale: 30
+});
+var classifier = ee.Classifier.smileRandomForest(50)
+  .train({features: training, classProperty: 'kelas', inputProperties: bands});
+
+var lulc2018 = composite2018.select(bands).classify(classifier);
+var lulc2020 = composite2020.select(bands).classify(classifier);
+var lulc2022 = composite2022.select(bands).classify(classifier);
+var lulc2025 = composite2025.select(bands).classify(classifier);
+
+var palette = ['d7191c', '1a9641', '2b83ba', 'fdae61', '7b3294'];
+Map.addLayer(lulc2018, {min: 0, max: 4, palette: palette}, 'LULC 2018', false);
+Map.addLayer(lulc2020, {min: 0, max: 4, palette: palette}, 'LULC 2020', false);
+Map.addLayer(lulc2022, {min: 0, max: 4, palette: palette}, 'LULC 2022', false);
+Map.addLayer(lulc2025, {min: 0, max: 4, palette: palette}, 'LULC 2025', true);
+
+// 8. ACCURACY ASSESSMENT (seed=42, 70/30 split)
+var validated       = training.randomColumn('random', 42);
+var trainSet        = validated.filter(ee.Filter.lt('random', 0.7));
+var testSet         = validated.filter(ee.Filter.gte('random', 0.7));
+var classifierFinal = ee.Classifier.smileRandomForest(50)
+  .train({features: trainSet, classProperty: 'kelas', inputProperties: bands});
+var confMatrix = testSet.classify(classifierFinal).errorMatrix('kelas', 'classification');
+print('Confusion Matrix P05:', confMatrix);
+print('Overall Accuracy P05:', confMatrix.accuracy());
+print('Kappa Coefficient P05:', confMatrix.kappa());
+
+// 9. HITUNG AREA PER KELAS PER TAHUN (km²)
+function hitungArea(lulcImage, label) {
+  var areaImage = ee.Image.pixelArea().divide(1e6);
+  var area = areaImage.addBands(lulcImage).reduceRegion({
+    reducer: ee.Reducer.sum().group({groupField: 1, groupName: 'kelas'}),
+    geometry: aoi,
+    scale: 100,
+    maxPixels: 1e9
+  });
+  print('=== Area per kelas (km2) — ' + label + ' ===', area);
+}
+hitungArea(lulc2018, '2018');
+hitungArea(lulc2020, '2020');
+hitungArea(lulc2022, '2022');
+hitungArea(lulc2025, '2025');
+
+// 10. CHART TREN LULC 2018–2025
+function areaPerKelas(lulcImage, tahun) {
+  var areaImage = ee.Image.pixelArea().divide(1e6);
+  var areas = ee.List([0, 1, 2, 3, 4]).map(function(kelas) {
+    var mask = lulcImage.eq(ee.Number(kelas));
+    var area = areaImage.updateMask(mask).reduceRegion({
+      reducer: ee.Reducer.sum(),
+      geometry: aoi,
+      scale: 100,
+      maxPixels: 1e9
+    });
+    return ee.Number(area.values().get(0));
+  });
+  return ee.Feature(null, {
+    'year':       tahun,
+    'Permukiman': areas.get(0),
+    'Vegetasi':   areas.get(1),
+    'Air':        areas.get(2),
+    'Tambak':     areas.get(3),
+    'Industri':   areas.get(4)
+  });
+}
+var trendFC = ee.FeatureCollection([
+  areaPerKelas(lulc2018, 2018),
+  areaPerKelas(lulc2020, 2020),
+  areaPerKelas(lulc2022, 2022),
+  areaPerKelas(lulc2025, 2025)
+]);
+var chart = ui.Chart.feature.byFeature(
+    trendFC, 'year', ['Permukiman', 'Vegetasi', 'Air', 'Tambak', 'Industri'])
+  .setChartType('ColumnChart')
+  .setOptions({
+    title: 'Tren Luas LULC Surabaya-Sidoarjo-Gresik 2018–2025 (km²)',
+    hAxis: {title: 'Tahun', format: '####'},
+    vAxis: {title: 'Luas (km²)'},
+    colors: ['d7191c', '1a9641', '2b83ba', 'fdae61', '7b3294']
+  });
+print(chart);
+
+
+function exportGeoJSON(lulcImage, tahun) {
+  var vectors = lulcImage.reduceToVectors({
+    geometry: aoi,
+    scale: 100,
+    geometryType: 'polygon',
+    eightConnected: false,
+    labelProperty: 'kelas',
+    maxPixels: 1e9
+  });
+  Export.table.toDrive({
+    collection: vectors,
+    description: 'Praktikum05_LULC_' + tahun,
+    fileFormat: 'GeoJSON',
+    folder: 'GEE_KP_Telkomsat'
+  });
+}
+
+exportGeoJSON(lulc2018, '2018');
+exportGeoJSON(lulc2020, '2020');
+exportGeoJSON(lulc2022, '2022');
+exportGeoJSON(lulc2025, '2025');
